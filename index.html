@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta content="telephone=no" name="format-detection"/>
+    <meta content="email=no" name="format-detection"/>
+    <title>充电桩</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="jquery-1.8.3.min.js"></script>
+    <script src="http://res.wx.qq.com/open/js/jweixin-1.0.0.js"></script>
+</head>
+<style>
+    .card_numb {
+        position: relative;
+    }
+
+    ul {
+        display: none;
+        border: 1px solid #d5d5d5;
+        width: 80%;
+        position: absolute;
+        top: 100%;
+        left: 20%;
+        overflow: hidden;
+        background-color: #fff;
+        overflow-y: auto;
+        border-top: 0;
+        z-index: 10001;
+    }
+
+    ul li {
+        height: 30px;
+        line-height: 2em;
+        overflow: hidden;
+        padding: 0 10px;
+        cursor: pointer;
+        border-top: 1px solid #d5d5d5;
+    }
+
+    .nice-select ul li.on {
+        background-color: #e0e0e0;
+    }
+</style>
+<body>
+<div class="error">
+    <!--提示错误的地方-->
+</div>
+<div class="top">
+
+
+    余额充值
+</div>
+<div class="toph"></div>
+<div class="balance-numb card_numb">
+    智能卡号<input id="customerId" type="tel" placeholder="输入卡号" oninput="searchList(this.value)"/>
+    <ul>
+        <li>Java--我的--最爱</li>
+        <li>PHP--很棒的wo</li>
+        <li>HTML--简单</li>
+        <li>jQuery--有点难</li>
+    </ul>
+</div>
+
+<div class="balance-tit">微信支付</div>
+<div class="balance-numb">
+    充值金额<span><input type="tel" placeholder="输入金额" id="money"></span>
+</div>
+<div class="no-money">
+    <a id="recharge">立即充值</a>
+</div>
+
+
+<script>
+</script>
+<script>
+    wx.config({
+        debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+        appId: "wxe9103cb1c9d86b73", // 必填，公众号的唯一标识
+        timestamp: "1497338008", // 必填，生成签名的时间戳
+        nonceStr: "gSHVozfkkU65Vag5ClJJSq2yQ5ZFAwQ7", // 必填，生成签名的随机串
+        signature: '5b3c0e88cf79a617ee5644738b2f124a8300c40c',// 必填，签名，见附录1
+        jsApiList: ['chooseWXPay'] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+    });
+</script>
+<script>
+    $(function () {
+        $('body').css('background', '#F5F5F5');
+
+        $('#recharge').click(function () {
+            var total_fee = parseFloat($('#money').val())
+
+            if ($('#money').val() == '') {
+                alert('请输入充值金额')
+                return false
+            }
+
+            if (total_fee <= 0) {
+                alert('充值金额必须大于0')
+                return false
+            }
+
+            $.post('/wechat/balance/recharge/', {'total_fee': total_fee}, function (data) {
+                if (data.result) {
+                    var time_stamp = data.jsapi_signature.timestamp;
+                    var nonce_str = data.jsapi.nonceStr;
+                    var package_prepay_id = data.jsapi.package;
+                    var sign_type = data.jsapi.signType;
+                    var pay_sign = data.jsapi.paySign;
+                    var recharge_id = data.recharge_id
+                    wx.chooseWXPay({
+                        timestamp: time_stamp, // 支付签名时间戳，注意微信jssdk中的所有使用timestamp字段均为小写。但最新版的支付后台生成签名使用的timeStamp字段名需大写其中的S字符
+                        nonceStr: nonce_str, // 支付签名随机串，不长于 32 位
+                        package: package_prepay_id, // 统一支付接口返回的prepay_id参数值，提交格式如：prepay_id=***）
+                        signType: sign_type, // 签名方式，默认为'SHA1'，使用新版支付需传入'MD5'
+                        paySign: pay_sign, // 支付签名
+                        success: function (res) {
+
+                            window.location = '/wechat/balance/recharge/success/?recharge_id=' + recharge_id
+                        }
+                    });
+                } else {
+                    alert('支付失败，请刷新页面重试。')
+                }
+            })
+        })
+    })
+
+</script>
+
+<script type="text/javascript">
+    $(function () {
+        $(".card_numb").click(function (e) {
+            $(this).find("ul").show();
+            e.stopPropagation();
+        });
+
+        $(".card_numb ul li").hover(function (e) {
+            $(this).toggleClass("on");
+            e.stopPropagation();
+        });
+
+        $(".card_numb ul li").click(function (e) {
+            var val = $(this).text();
+            val = val.substring(0, val.indexOf('--'));
+            $(".card_numb").find("input").val(val);
+            $(".card_numb").find("ul").hide();
+            e.stopPropagation();
+        });
+
+        $(document).click(function () {
+            $(".card_numb").find("ul").hide();
+        });
+    });
+
+    function searchList(strValue) {
+        var count = 0;
+        if (strValue != "") {
+            $(".card_numb ul li").each(function (i) {
+                var contentValue = $(this).text();
+                if (contentValue.toLowerCase().indexOf(strValue.toLowerCase()) < 0) {
+                    $(this).hide();
+                    count++;
+                } else {
+                    $(this).show();
+                }
+                if (count == (i + 1)) {
+                    $(".card_numb").find("ul").hide();
+                } else {
+                    $(".card_numb").find("ul").show();
+                }
+            });
+        } else {
+            $(".card_numb ul li").each(function (i) {
+                $(this).show();
+            });
+        }
+    }
+
+</script>
+</body>
+</html>
